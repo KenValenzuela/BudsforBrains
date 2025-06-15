@@ -1,0 +1,33 @@
+# .gitignore
+
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.pyo
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Environment files
+.env
+*.env
+.venv/
+venv/
+
+# IDE / Editor configs
+.idea/
+.vscode/
+
+# Data and models (can be too large or sensitive)
+data/*.parquet
+data/*.csv
+data/*.json
+vector_store/*
+scripts/models/*.pkl
+*.npy
+
+# Logs and misc
+*.log
+.DS_Store

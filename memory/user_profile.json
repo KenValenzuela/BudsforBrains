@@ -1,0 +1,14 @@
+{
+  "summary": "I'm a beginner user usually consuming in the morning.\nI'm looking for effects like Creative, Euphoric.\nI want to avoid Anxiety.\nI prefer aromas/flavors like no specific preference.\nMy primary use case is sleep.",
+  "desired_effects": [
+    "Creative",
+    "Euphoric"
+  ],
+  "avoid_effects": [
+    "Anxiety"
+  ],
+  "preferred_aromas": [],
+  "use_case": "Sleep",
+  "experience": "Beginner",
+  "time_of_day": "Morning"
+}
