@@ -1,16 +1,17 @@
-# pages/4_Survey.py
+# === pages/4_survey.py (Simplified, No Inline Auth) ===
 import streamlit as st
 import os
-import json
 import numpy as np
 import pandas as pd
 import faiss
+import json
 from dotenv import load_dotenv
 from openai import OpenAI
+from memory.user_profile import load_user_profile, update_user_profile
+from utils.supabase_client import supabase
 
 # === Path Setup ===
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-PROFILE_PATH = os.path.join(ROOT_DIR, "memory", "user_profile.json")
 FAISS_INDEX_PATH = os.path.join(ROOT_DIR, "vector_store", "index.faiss")
 DOCS_METADATA_PATH = os.path.join(ROOT_DIR, "vector_store", "docs_metadata.pkl")
 
@@ -20,23 +21,11 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # === Load Metadata + FAISS Index ===
 metadata = pd.read_pickle(DOCS_METADATA_PATH)
-if isinstance(metadata, list):  # Convert to DataFrame if needed
+if isinstance(metadata, list):
     metadata = pd.DataFrame(metadata)
-
 index = faiss.read_index(FAISS_INDEX_PATH)
 
-# === Load or Save Profile JSON ===
-def load_profile():
-    if os.path.exists(PROFILE_PATH):
-        with open(PROFILE_PATH, "r") as f:
-            return json.load(f)
-    return {}
-
-def save_profile(profile):
-    with open(PROFILE_PATH, "w") as f:
-        json.dump(profile, f, indent=2)
-
-# === Embedding Function ===
+# === Embedding + Search ===
 def get_embedding(text, model="text-embedding-3-small"):
     try:
         response = client.embeddings.create(input=[text], model=model)
@@ -45,60 +34,72 @@ def get_embedding(text, model="text-embedding-3-small"):
         st.error(f"Embedding failed: {e}")
         return None
 
-# === FAISS Search ===
 def search_index(query_embedding, top_k=5):
     D, I = index.search(np.array([query_embedding]), top_k)
-    idx_list = I[0].tolist()
-    results = metadata.iloc[idx_list].copy()
+    results = metadata.iloc[I[0]].copy()
     results["score"] = D[0]
     return results
 
-# === Streamlit Page Config ===
+# === UI Config ===
 st.set_page_config(page_title="Find Your Strain", page_icon="🌿")
 st.title("🌿 Budtender Survey")
+
+# === Require Auth ===
+if "user" not in st.session_state:
+    st.error("🔐 Please log in first from the Login page.")
+    st.stop()
+
+user_email = st.session_state["user"].user.email
+profile = load_user_profile(user_email)
+
+# === Survey UI ===
 st.caption("Answer a few quick questions to help personalize your strain recommendations.")
 
-# === Survey ===
-profile = load_profile()
-
 with st.form("budtender_survey"):
-    desired_effects = st.multiselect(
-        "What effects are you hoping for?",
-        ["Relaxed", "Euphoric", "Focused", "Creative", "Uplifted", "Sleepy", "Energetic"]
-    )
+    desired_effects = st.multiselect("What effects are you hoping for?", [
+        "Relaxed", "Euphoric", "Focused", "Creative", "Uplifted", "Sleepy", "Energetic"])
 
-    avoid_effects = st.multiselect(
-        "Any effects you'd like to avoid?",
-        ["Anxiety", "Dry Mouth", "Couch-lock", "Paranoia", "Grogginess", "None"]
-    )
+    avoid_effects = st.multiselect("Any effects you'd like to avoid?", [
+        "Anxiety", "Dry Mouth", "Couch-lock", "Paranoia", "Grogginess", "None"])
 
     preferred_aromas = st.multiselect(
-        "Preferred flavors or aromas?",
-        ["Fruity", "Earthy", "Citrus", "Sweet", "Herbal", "Spicy", "No Preference"]
-    )
+    "Preferred flavors or aromas?",
+    ["Fruity", "Earthy", "Citrus", "Sweet", "Herbal", "Spicy", "No Preference"],
+    default=[x for x in profile.get("preferred_aromas", []) if x in ["Fruity", "Earthy", "Citrus", "Sweet", "Herbal", "Spicy", "No Preference"]]
+)
 
-    usage_context = st.radio(
-        "What are you using it for?",
-        ["Sleep", "Socializing", "Focus/Work", "Creativity", "Chronic Pain", "Anxiety Relief", "General Enjoyment"]
-    )
+    usage_context = st.radio("What are you using it for?", [
+        "Sleep", "Socializing", "Focus/Work", "Creativity", "Chronic Pain", "Anxiety Relief", "General Enjoyment"])
 
-    experience = st.radio("What's your cannabis experience level?", ["Beginner", "Intermediate", "Experienced"])
-    time_of_day = st.selectbox("When do you usually consume?", ["Morning", "Afternoon", "Evening", "Late Night"])
+    experience = st.radio("What's your cannabis experience level?", [
+        "Beginner", "Intermediate", "Experienced"])
+
+    time_of_day = st.selectbox("When do you usually consume?", [
+        "Morning", "Afternoon", "Evening", "Late Night"])
+
+    cannabinoid_pref = st.radio("Do you have a cannabinoid preference?", [
+        "High THC", "High CBD", "Balanced", "No Preference"])
+
+    medical_goals = st.multiselect("Are you trying to address any of the following?", [
+        "Stress", "Insomnia", "Chronic Pain", "Appetite Loss", "Migraines", "Muscle Spasms", "None"])
+
+    custom_note = st.text_area("Anything else you'd like us to consider?",
+        placeholder="e.g. 'Prefer something calming but functional for work'")
 
     submitted = st.form_submit_button("Get My Recommendations")
 
-# === If Submitted ===
 if submitted:
-    # Build natural language summary
     profile_text = (
-        f"I'm a {experience.lower()} user usually consuming in the {time_of_day.lower()}.\n"
-        f"I'm looking for effects like {', '.join(desired_effects) or 'none specified'}.\n"
-        f"I want to avoid {', '.join(avoid_effects) if avoid_effects else 'nothing in particular'}.\n"
-        f"I prefer aromas/flavors like {', '.join(preferred_aromas) if preferred_aromas else 'no specific preference'}.\n"
-        f"My primary use case is {usage_context.lower()}."
+        f"I'm a {experience.lower()} user usually consuming in the {time_of_day.lower()}\n"
+        f"Looking for effects like: {', '.join(desired_effects) or 'none specified'}.\n"
+        f"Avoiding: {', '.join(avoid_effects) or 'nothing specific'}.\n"
+        f"Preferred aromas/flavors: {', '.join(preferred_aromas) or 'no strong preference'}.\n"
+        f"My cannabinoid preference is: {cannabinoid_pref}.\n"
+        f"My medical goals are: {', '.join(medical_goals) or 'none'}.\n"
+        f"Use case: {usage_context.lower()}.\n"
+        f"Additional notes: {custom_note.strip() if custom_note else 'none'}."
     )
 
-    # Save profile
     profile.update({
         "summary": profile_text,
         "desired_effects": desired_effects,
@@ -106,28 +107,40 @@ if submitted:
         "preferred_aromas": preferred_aromas,
         "use_case": usage_context,
         "experience": experience,
-        "time_of_day": time_of_day
+        "time_of_day": time_of_day,
+        "cannabinoid_preference": cannabinoid_pref,
+        "medical_goals": medical_goals,
+        "custom_notes": custom_note.strip()
     })
-    save_profile(profile)
+    update_user_profile(profile, email=user_email)
 
-    # Show summary
     st.markdown("#### ✅ Profile Summary")
     st.code(profile_text)
 
-    # Get embedding and search for matches
     embedding = get_embedding(profile_text)
     if embedding is not None:
-        results = search_index(embedding, top_k=5)
+        results = search_index(embedding)
         st.markdown("---")
         st.markdown("### 🔍 Top Strain Matches")
         for _, row in results.iterrows():
-            st.markdown(f"""
-**{row.get("strain_name", "Unnamed Strain")}**  
-{row.get("content", "")[:300]}...  
-[Read more]({row.get("url", "#")})
-""")
+            name = row.get("strain_name", "Unnamed Strain")
+            description = row.get("content", "")[:300]
+            st.markdown(f"**{name}**\n\n{description}...")
 
-# === Load existing profile for review ===
+            leafly = row.get("leafly_url")
+            allbud = row.get("allbud_url")
+            weedmaps = row.get("weedmaps_url")
+
+            links = []
+            if leafly: links.append(f"[Leafly]({leafly})")
+            if allbud: links.append(f"[AllBud]({allbud})")
+            if weedmaps: links.append(f"[Weedmaps]({weedmaps})")
+
+            if links:
+                st.markdown("🔗 " + " | ".join(links))
+            else:
+                st.markdown("_No external links available._")
+
 elif profile:
     st.markdown("### 👤 Current Saved Profile")
     st.json(profile)

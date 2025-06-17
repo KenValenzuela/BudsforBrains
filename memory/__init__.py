@@ -1,0 +1,2 @@
+def journal():
+    return None

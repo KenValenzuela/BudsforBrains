@@ -31,7 +31,6 @@ tqdm.pandas()
 
 # === Helpers ===
 def chunk_sentences(text: str, k: int = CHUNK_SIZE) -> list[str]:
-    """Chunk text into groups of k sentences."""
     if not isinstance(text, str) or not text.strip():
         return []
     sents = sent_tokenize(text)
@@ -42,7 +41,7 @@ def embed(text: str) -> list[float] | None:
         response = client.embeddings.create(input=[text], model=EMBED_MODEL)
         return response.data[0].embedding
     except Exception as e:
-        print("❌ Embedding error:", e)
+        print(f"❌ Embedding error for chunk: {text[:30]}… → {e}")
         return None
 
 # === Main ===
@@ -50,61 +49,60 @@ def main():
     print(f"🔍 Loading cleaned strain data from {CLEANED_PATH} …")
     if not os.path.exists(CLEANED_PATH):
         raise FileNotFoundError(f"Missing file: {CLEANED_PATH}")
+
     df = pd.read_parquet(CLEANED_PATH)
 
-    if "strain_name" not in df.columns or "aggressive_cleaned_description" not in df.columns:
-        raise KeyError("❌ Required columns 'strain_name' or 'aggressive_cleaned_description' missing.")
+    required_cols = {"strain_name", "aggressive_cleaned_description", "dominant_terpene"}
+    if not required_cols.issubset(df.columns):
+        raise KeyError(f"❌ Required columns missing: {required_cols - set(df.columns)}")
 
     df["aggressive_cleaned_description"] = df["aggressive_cleaned_description"].fillna("").astype(str)
+    df["effects"] = df.get("effects", pd.Series([""] * len(df))).fillna("").astype(str)
+    df["dominant_terpene"] = df.get("dominant_terpene", pd.Series(["unknown"] * len(df))).fillna("unknown").astype(str)
+
+    print("✂️ Chunking strain descriptions …")
     df["chunks"] = df["aggressive_cleaned_description"].progress_apply(chunk_sentences)
 
-    print("📎 Flattening chunks …")
+    print("📎 Flattening chunks for embedding …")
     records = []
-    for sid, (name, chunks) in enumerate(zip(df["strain_name"], df["chunks"])):
+    for sid, (name, chunks, effects, terpene) in enumerate(zip(df["strain_name"], df["chunks"], df["effects"], df["dominant_terpene"])):
         for idx, chunk in enumerate(chunks):
             if chunk.strip():
                 records.append({
                     "strain_id": sid,
                     "strain_name": name,
                     "chunk_index": idx,
-                    "chunk": chunk
+                    "chunk": chunk,
+                    "effects": effects,
+                    "dominant_terpene": terpene
                 })
 
     if not records:
-        raise ValueError("⚠️ No valid chunks generated.")
+        raise ValueError("⚠️ No valid chunks were generated from descriptions.")
 
     docs = pd.DataFrame(records)
-    print(f"📄 Prepared {len(docs):,} chunks for embedding.")
+    print(f"📄 Prepared {len(docs):,} text chunks to embed.")
 
+    # === Embed (Resume from existing if needed) ===
     if os.path.exists(EMB_PATH):
         old = pd.read_parquet(EMB_PATH)
-        required_cols = {"strain_name", "chunk_index", "embedding"}
-        if not required_cols.issubset(old.columns):
-            print("⚠️ Corrupt existing file. Rebuilding from scratch.")
-            os.remove(EMB_PATH)
-            old = None
-    else:
-        old = None
-
-    if old is not None:
-        docs = docs.merge(
-            old[["strain_name", "chunk_index", "embedding"]],
-            on=["strain_name", "chunk_index"],
-            how="left"
-        )
+        if {"strain_name", "chunk_index", "embedding"}.issubset(old.columns):
+            docs = docs.merge(old[["strain_name", "chunk_index", "embedding"]],
+                              on=["strain_name", "chunk_index"], how="left")
+        else:
+            print("⚠️ Corrupt embedding file, starting from scratch.")
+            docs["embedding"] = None
     else:
         docs["embedding"] = None
 
-    to_embed_mask = docs["embedding"].isna()
-    to_embed_ct = to_embed_mask.sum()
-    print(f"➡️ Chunks to embed: {to_embed_ct:,}")
-
-    if to_embed_ct > 0:
-        docs.loc[to_embed_mask, "embedding"] = docs.loc[to_embed_mask, "chunk"].progress_apply(embed)
+    to_embed = docs["embedding"].isna()
+    print(f"➡️ Chunks needing embedding: {to_embed.sum():,}")
+    if to_embed.any():
+        docs.loc[to_embed, "embedding"] = docs.loc[to_embed, "chunk"].progress_apply(embed)
 
     docs.dropna(subset=["embedding"], inplace=True)
     docs.to_parquet(EMB_PATH, index=False)
-    print(f"✅ Saved {len(docs):,} embedded chunks → {EMB_PATH}")
+    print(f"✅ Embedded chunks saved → {EMB_PATH}")
 
 if __name__ == "__main__":
     main()

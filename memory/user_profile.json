@@ -1,14 +1,39 @@
 {
-  "summary": "I'm a beginner user usually consuming in the morning.\nI'm looking for effects like Creative, Euphoric.\nI want to avoid Anxiety.\nI prefer aromas/flavors like no specific preference.\nMy primary use case is sleep.",
+  "summary": "I'm a beginner user usually consuming in the morning\nLooking for effects like: Euphoric, Relaxed\nAvoiding: Dry Mouth\nPreferred aromas/flavors: Herbal\nUse case: general enjoyment.",
   "desired_effects": [
-    "Creative",
-    "Euphoric"
+    "Euphoric",
+    "Relaxed"
   ],
   "avoid_effects": [
-    "Anxiety"
+    "Dry Mouth"
   ],
-  "preferred_aromas": [],
-  "use_case": "Sleep",
+  "preferred_aromas": [
+    "Herbal"
+  ],
+  "use_case": "General Enjoyment",
   "experience": "Beginner",
-  "time_of_day": "Morning"
+  "time_of_day": "Morning",
+  "notes": "",
+  "logged_effects": [
+    "Focused",
+    "Happy",
+    "engaged",
+    "Relaxed Tingly Happy",
+    "Relaxed Euphoric Happy"
+  ],
+  "past_strains": [
+    "Lemon Cherry Gelato",
+    "Pink Sunset",
+    "Blue Widow",
+    "North American Indica"
+  ],
+  "cannabinoid_preference": "High THC",
+  "medical_goals": [
+    "Chronic Pain"
+  ],
+  "custom_notes": "",
+  "reinforcement": {
+    "Blue Widow": 1.0,
+    "North American Indica": -1.0
+  }
 }
