@@ -1,4 +1,4 @@
-# === pages/4_survey.py (Supabase-Integrated & Stable Survey) ===
+# === pages/4_survey.py (Supabase-Integrated Budtender Survey with Fixes) ===
 
 import streamlit as st
 import os
@@ -9,22 +9,27 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from supabase_profile_utils import fetch_or_create_user_profile, update_user_profile_supabase
 
-# === Path Setup ===
+# === Load environment variables and OpenAI client ===
+load_dotenv()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# === Path setup ===
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 FAISS_INDEX_PATH = os.path.join(ROOT_DIR, "vector_store", "index.faiss")
 DOCS_METADATA_PATH = os.path.join(ROOT_DIR, "vector_store", "docs_metadata.pkl")
 
-# === Load environment and OpenAI ===
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# === Load FAISS index and metadata ===
+if not os.path.exists(FAISS_INDEX_PATH):
+    st.error(f"FAISS index not found at: {FAISS_INDEX_PATH}")
+    st.stop()
 
-# === Load Metadata + FAISS Index ===
 metadata = pd.read_pickle(DOCS_METADATA_PATH)
 if isinstance(metadata, list):
     metadata = pd.DataFrame(metadata)
+
 index = faiss.read_index(FAISS_INDEX_PATH)
 
-# === Embedding + Search ===
+# === Helper Functions ===
 def get_embedding(text, model="text-embedding-3-small"):
     try:
         response = client.embeddings.create(input=[text], model=model)
@@ -39,23 +44,25 @@ def search_index(query_embedding, top_k=5):
     results["score"] = D[0]
     return results
 
-# === UI Config ===
+# === Streamlit UI ===
 st.set_page_config(page_title="Find Your Strain", page_icon="🌿")
 st.title("🌿 Budtender Survey")
 
-# === Require Auth ===
+# === Require logged-in user ===
 if "user" not in st.session_state:
     st.error("🔐 Please log in first from the Login page.")
     st.stop()
 
 user_email = st.session_state["user"].user.email
 profile = fetch_or_create_user_profile(user_email)
-if not profile:
-    st.error("❌ Could not load your profile.")
+
+# ✅ Safety check for profile
+if not profile or not isinstance(profile, dict):
+    st.error("❌ Failed to load your profile from Supabase.")
     st.stop()
 
-# === Survey UI ===
-st.caption("Answer a few quick questions to help personalize your strain recommendations.")
+# === Survey Form ===
+st.caption("Answer a few questions to help personalize your cannabis experience.")
 
 with st.form("budtender_survey"):
     desired_effects = st.multiselect("What effects are you hoping for?", [
@@ -96,9 +103,10 @@ with st.form("budtender_survey"):
         value=profile.get("custom_notes", "")
     )
 
+    # ✅ Submit button required
     submitted = st.form_submit_button("Get My Recommendations")
 
-# === Save + Embed + Search ===
+# === Handle Submission ===
 if submitted:
     profile_text = (
         f"I'm a {experience.lower()} user usually consuming in the {time_of_day.lower()}.\n"
@@ -111,6 +119,7 @@ if submitted:
         f"Additional notes: {custom_note.strip() if custom_note else 'none'}."
     )
 
+    # Update profile
     profile.update({
         "summary": profile_text,
         "desired_effects": desired_effects,
@@ -130,6 +139,7 @@ if submitted:
     st.markdown("#### ✅ Profile Summary")
     st.code(profile_text)
 
+    # Generate embedding + recommendations
     embedding = get_embedding(profile_text)
     if embedding is not None:
         results = search_index(embedding)
@@ -157,8 +167,6 @@ if submitted:
 elif profile:
     st.markdown("### 👤 Current Saved Profile")
     st.json(profile)
-else:
-    st.info("No profile yet. Fill out the survey to get started.")
 
 st.markdown("---")
 st.markdown(
