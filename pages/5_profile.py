@@ -1,4 +1,4 @@
-# === pages/5_profile.py (Supabase Integrated Profile Dashboard) ===
+# === pages/5_profile.py (Refactored with Auto Refresh + Supabase Integration) ===
 import streamlit as st
 import pandas as pd
 from supabase_profile_utils import fetch_or_create_user_profile, update_user_profile_supabase
@@ -12,12 +12,28 @@ if "user" not in st.session_state:
     st.stop()
 
 user_email = st.session_state["user"].user.email
-profile = fetch_or_create_user_profile(user_email)
 
-# === Profile Form ===
+# === Refresh Logic ===
+if "refresh_profile" not in st.session_state:
+    st.session_state["refresh_profile"] = True
+
+if st.session_state["refresh_profile"]:
+    profile = fetch_or_create_user_profile(user_email)
+    st.session_state["cached_profile"] = profile
+    st.session_state["refresh_profile"] = False
+else:
+    profile = st.session_state.get("cached_profile", fetch_or_create_user_profile(user_email))
+
+# === Manual Refresh Button ===
+if st.button("🔄 Refresh Dashboard"):
+    st.session_state["refresh_profile"] = True
+    st.experimental_rerun()
+
+# === Profile Edit Form ===
 st.markdown("## 🎯 Personal Preferences")
 with st.form("update_profile"):
     col1, col2 = st.columns(2)
+
     with col1:
         desired_options = [
             "Relaxed", "Energetic", "Uplifted", "Euphoric", "Focused",
@@ -28,6 +44,7 @@ with st.form("update_profile"):
             options=desired_options,
             default=[x for x in profile.get("desired_effects", []) if x in desired_options]
         )
+
     with col2:
         aroma_options = [
             "Citrus", "Earthy", "Berry", "Pine", "Sweet",
@@ -40,6 +57,7 @@ with st.form("update_profile"):
         )
 
     notes = st.text_area("📝 Additional Notes", value=profile.get("notes", ""))
+
     submitted = st.form_submit_button("💾 Save Preferences")
     if submitted:
         profile["desired_effects"] = desired_effects
@@ -47,6 +65,8 @@ with st.form("update_profile"):
         profile["notes"] = notes
         update_user_profile_supabase(user_email, profile)
         st.success("✅ Profile saved.")
+        st.session_state["refresh_profile"] = True
+        st.experimental_rerun()
 
 # === Profile Dashboard ===
 st.markdown("---")
@@ -76,4 +96,4 @@ if logged_effects or past_strains:
 else:
     st.info("Your journal will populate this dashboard over time.")
 
-st.caption("🔄 This dashboard updates every time you log strains or update your profile.")
+st.caption("🔄 This dashboard updates automatically after journal or survey edits.")
