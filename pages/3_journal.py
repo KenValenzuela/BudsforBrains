@@ -1,8 +1,9 @@
-# === pages/3_journal.py (Supabase + Auth Integrated) ===
+# === pages/3_journal.py (Strain Journal UI + Supabase Logging) ===
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from supabase_profile_utils import fetch_or_create_user_profile, update_user_profile_supabase
+from memory.journal import log_entry, get_user_id
 from utils.supabase_client import supabase
 
 st.set_page_config("📓 Strain Journal", layout="wide")
@@ -15,38 +16,20 @@ if "user" not in st.session_state:
     st.stop()
 
 user_email = st.session_state["user"].user.email
-profile = fetch_or_create_user_profile(user_email)
 
-# === Get user ID safely ===
-def get_user_id(email):
-    resp = supabase.table("user_profiles").select("id").eq("email", email).execute()
-    return resp.data[0]["id"] if resp.data else None
-
-# === Load journal entries from Supabase ===
+# === Load Existing Entries ===
 def load_journal(email):
     user_id = get_user_id(email)
-    if user_id is None:
+    if not user_id:
         return []
     response = supabase.table("journals").select("entry").eq("user_id", user_id).order("created_at", desc=True).execute()
     return [item["entry"] for item in response.data] if response.data else []
 
-# === Recompute profile from journal ===
-def recompute_profile(entries):
-    effects = set()
-    strains = set()
-    for entry in entries:
-        for e in entry.get("effects_felt", []):
-            effects.add(e.strip())
-        strains.add(entry.get("strain", "").strip())
-    return {
-        "logged_effects": sorted(effects),
-        "past_strains": sorted(strains)
-    }
-
 journal_entries = load_journal(user_email)
 
-# === Manual Entry Form ===
+# === Entry Form ===
 st.markdown("### ➕ Add New Experience")
+
 with st.form("manual_entry_form"):
     col1, col2, col3 = st.columns([3, 1.5, 1.5])
     with col1:
@@ -60,8 +43,9 @@ with st.form("manual_entry_form"):
     dosage = st.text_input("Dosage", placeholder="e.g., 0.25g, 5mg edible")
     notes = st.text_area("Additional Notes", placeholder="Describe the setting, activities, or other observations...")
 
-    submit = st.form_submit_button("📘 Save Entry")
-    if submit and strain.strip():
+    submitted = st.form_submit_button("📘 Save Entry")
+
+    if submitted and strain.strip():
         parsed_effects = [e.strip() for e in effects_felt.split(",") if e.strip()]
         new_entry = {
             "strain": strain.strip(),
@@ -73,35 +57,31 @@ with st.form("manual_entry_form"):
             "timestamp": datetime.utcnow().isoformat()
         }
 
-        user_id = get_user_id(user_email)
-        if user_id:
-            supabase.table("journals").insert({"user_id": user_id, "entry": new_entry}).execute()
-            journal_entries.insert(0, new_entry)
-            updated_profile = recompute_profile(journal_entries)
-            profile.update(updated_profile)
-            update_user_profile_supabase(user_email, profile)
-            st.success(f"✅ Entry added for **{strain}** on {new_entry['date']}")
-        else:
-            st.error("❌ Could not find a valid user ID. Please make sure the profile exists.")
+        log_entry(new_entry, email=user_email)
+        journal_entries.insert(0, new_entry)
+        st.success(f"✅ Entry added for **{strain}** on {new_entry['date']}")
 
-# === Display and Edit Log Entries (read-only for now) ===
+# === Journal Log Viewer ===
 if journal_entries:
     st.markdown("### 📘 Logged Entries")
     df = pd.DataFrame(journal_entries)
-    df_display = df.copy()
-    df_display["effects_felt"] = df_display["effects_felt"].apply(lambda x: ", ".join(x) if isinstance(x, list) else x)
+    df["effects_felt"] = df["effects_felt"].apply(lambda x: ", ".join(x) if isinstance(x, list) else x)
+    df_sorted = df.sort_values("timestamp", ascending=False).reset_index(drop=True)
 
-    st.dataframe(df_display.sort_values("timestamp", ascending=False).reset_index(drop=True), use_container_width=True)
+    st.dataframe(df_sorted, use_container_width=True)
 
     st.download_button(
-        "⬇️ Download CSV", df_display.to_csv(index=False),
-        file_name="strain_journal.csv", mime="text/csv"
+        label="⬇️ Download CSV",
+        data=df_sorted.to_csv(index=False),
+        file_name="strain_journal.csv",
+        mime="text/csv"
     )
 else:
     st.info("No entries yet. Use the form above to log your first experience.")
 
-    st.markdown("---")
-    st.markdown(
-        "This journaling system was built to help people track what works for them. If it helped you, [buy me a coffee](https://coff.ee/kenvalenzuela). ☕",
-        unsafe_allow_html=True,
-    )
+st.markdown("---")
+st.markdown(
+    "This journaling system was built to help people track what works for them. "
+    "If it helped you, [buy me a coffee](https://coff.ee/kenvalenzuela). ☕",
+    unsafe_allow_html=True,
+)
