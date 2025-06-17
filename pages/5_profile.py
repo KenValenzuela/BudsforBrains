@@ -27,7 +27,7 @@ else:
 # === Manual Refresh Button ===
 if st.button("🔄 Refresh Dashboard"):
     st.session_state["refresh_profile"] = True
-    st.experimental_rerun()
+    st.rerun()
 
 # === Profile Edit Form ===
 st.markdown("## 🎯 Personal Preferences")
@@ -66,7 +66,7 @@ with st.form("update_profile"):
         update_user_profile_supabase(user_email, profile)
         st.success("✅ Profile saved.")
         st.session_state["refresh_profile"] = True
-        st.experimental_rerun()
+        st.rerun()
 
 # === Profile Dashboard ===
 st.markdown("---")
