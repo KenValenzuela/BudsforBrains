@@ -1,4 +1,4 @@
-# === pages/4_survey.py (Supabase-Integrated Budtender Survey with Fixes) ===
+# === pages/4_survey.py (Stable Supabase-Integrated Survey) ===
 
 import streamlit as st
 import os
@@ -9,18 +9,18 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from supabase_profile_utils import fetch_or_create_user_profile, update_user_profile_supabase
 
-# === Load environment variables and OpenAI client ===
+# === Load Environment and OpenAI ===
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# === Path setup ===
+# === Paths ===
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 FAISS_INDEX_PATH = os.path.join(ROOT_DIR, "vector_store", "index.faiss")
 DOCS_METADATA_PATH = os.path.join(ROOT_DIR, "vector_store", "docs_metadata.pkl")
 
-# === Load FAISS index and metadata ===
+# === Load FAISS Index and Metadata ===
 if not os.path.exists(FAISS_INDEX_PATH):
-    st.error(f"FAISS index not found at: {FAISS_INDEX_PATH}")
+    st.error(f"❌ FAISS index not found: {FAISS_INDEX_PATH}")
     st.stop()
 
 metadata = pd.read_pickle(DOCS_METADATA_PATH)
@@ -29,13 +29,13 @@ if isinstance(metadata, list):
 
 index = faiss.read_index(FAISS_INDEX_PATH)
 
-# === Helper Functions ===
+# === Embedding & Search ===
 def get_embedding(text, model="text-embedding-3-small"):
     try:
         response = client.embeddings.create(input=[text], model=model)
         return np.array(response.data[0].embedding).astype("float32")
     except Exception as e:
-        st.error(f"Embedding failed: {e}")
+        st.error(f"❌ Embedding error: {e}")
         return None
 
 def search_index(query_embedding, top_k=5):
@@ -44,38 +44,44 @@ def search_index(query_embedding, top_k=5):
     results["score"] = D[0]
     return results
 
-# === Streamlit UI ===
+# === Utility: Safe profile list getter ===
+def safe_get_list(profile, key):
+    if profile and isinstance(profile, dict):
+        val = profile.get(key, [])
+        return val if isinstance(val, list) else []
+    return []
+
+# === Streamlit Page Setup ===
 st.set_page_config(page_title="Find Your Strain", page_icon="🌿")
 st.title("🌿 Budtender Survey")
 
-# === Require logged-in user ===
+# === Require Login ===
 if "user" not in st.session_state:
-    st.error("🔐 Please log in first from the Login page.")
+    st.error("🔐 Please log in from the Login page.")
     st.stop()
 
 user_email = st.session_state["user"].user.email
 profile = fetch_or_create_user_profile(user_email)
 
-# ✅ Safety check for profile
-if not profile or not isinstance(profile, dict):
-    st.error("❌ Failed to load your profile from Supabase.")
+if not profile:
+    st.error("❌ Failed to load profile.")
     st.stop()
 
 # === Survey Form ===
-st.caption("Answer a few questions to help personalize your cannabis experience.")
+st.caption("Answer a few quick questions to help personalize your cannabis experience.")
 
 with st.form("budtender_survey"):
     desired_effects = st.multiselect("What effects are you hoping for?", [
         "Relaxed", "Euphoric", "Focused", "Creative", "Uplifted", "Sleepy", "Energetic"
-    ], default=profile.get("desired_effects", []))
+    ], default=safe_get_list(profile, "desired_effects"))
 
     avoid_effects = st.multiselect("Any effects you'd like to avoid?", [
         "Anxiety", "Dry Mouth", "Couch-lock", "Paranoia", "Grogginess", "None"
-    ], default=profile.get("avoid_effects", []))
+    ], default=safe_get_list(profile, "avoid_effects"))
 
     preferred_aromas = st.multiselect("Preferred flavors or aromas?", [
         "Fruity", "Earthy", "Citrus", "Sweet", "Herbal", "Spicy", "No Preference"
-    ], default=[x for x in profile.get("preferred_aromas", []) if x in [
+    ], default=[x for x in safe_get_list(profile, "preferred_aromas") if x in [
         "Fruity", "Earthy", "Citrus", "Sweet", "Herbal", "Spicy", "No Preference"]])
 
     usage_context = st.radio("What are you using it for?", [
@@ -96,14 +102,14 @@ with st.form("budtender_survey"):
 
     medical_goals = st.multiselect("Are you trying to address any of the following?", [
         "Stress", "Insomnia", "Chronic Pain", "Appetite Loss", "Migraines", "Muscle Spasms", "None"
-    ], default=profile.get("medical_goals", []))
+    ], default=safe_get_list(profile, "medical_goals"))
 
     custom_note = st.text_area("Anything else you'd like us to consider?",
         placeholder="e.g. 'Prefer something calming but functional for work'",
-        value=profile.get("custom_notes", "")
+        value=profile.get("custom_notes", "") if isinstance(profile, dict) else ""
     )
 
-    # ✅ Submit button required
+    # ✅ Submit button inside form
     submitted = st.form_submit_button("Get My Recommendations")
 
 # === Handle Submission ===
@@ -119,7 +125,7 @@ if submitted:
         f"Additional notes: {custom_note.strip() if custom_note else 'none'}."
     )
 
-    # Update profile
+    # Update Supabase profile
     profile.update({
         "summary": profile_text,
         "desired_effects": desired_effects,
@@ -139,7 +145,6 @@ if submitted:
     st.markdown("#### ✅ Profile Summary")
     st.code(profile_text)
 
-    # Generate embedding + recommendations
     embedding = get_embedding(profile_text)
     if embedding is not None:
         results = search_index(embedding)
