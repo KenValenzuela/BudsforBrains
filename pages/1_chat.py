@@ -254,3 +254,9 @@ for q, a in memory["history"][-5:]:
 
 st.sidebar.subheader("🧬 Profile")
 st.sidebar.code(json.dumps(memory["user_profile"], indent=2))
+
+st.markdown("---")
+st.markdown(
+    "If the assistant helped you learn something today, [buy me a coffee](https://coff.ee/kenvalenzuela) so I can keep improving it. ☕",
+    unsafe_allow_html=True,
+)

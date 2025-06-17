@@ -5,7 +5,7 @@ st.set_page_config(page_title="About This App", page_icon="📘")
 st.title("📘 About Bud for Brains")
 
 st.markdown("""
-## 🌿 Why I Built This
+##  Why I Built This
 
 When I worked as a **budtender**, I saw the same thing every day: people walking in, overwhelmed by options and unsure where to start. 
 
@@ -22,7 +22,7 @@ So I built the solution I wish I had on the job: a **personalized cannabis assis
 
 ---
 
-## 🧠 What It Does
+##  What It Does
 
 - **Smart Chat Assistant:** Ask anything. Get informed, context-aware answers using RAG (retrieval-augmented generation).
 - **Guided Survey:** Capture your preferences, effects, and goals.
@@ -34,7 +34,7 @@ Everything gets sharper with use, so the system learns from you. 📈
 
 ---
 
-## ⚙️ Built With
+## ️ Built With
 
 -  **Streamlit** for the front-end interface
 -  **Supabase** for authentication and user data storage
@@ -44,9 +44,9 @@ Everything gets sharper with use, so the system learns from you. 📈
 
 ---
 
-## 💡 Why It Matters
+##  Why It Matters
 
-Most cannabis apps are designed to push products. 🛒 This one is designed to help you understand them.
+Most cannabis apps are designed to push products. This one is designed to help you understand them.
 
 Whether you’re a medical patient, a curious first-timer, or a returning user trying to track what works for you, **Bud for Brains puts education and personalization first.**
 
@@ -58,13 +58,19 @@ No hype. Just help. 🙌
 
 ## 👋 About Me
 
-My name is Ken Valenzuela, and I graduated with a BS in Data Science. As I worked towards my degree, I took a job 5 minutes from home at a dispensary, which started my journey in the cannabis retail world. 🌱
+My name is Ken Valenzuela, and I graduated with a BS in Data Science. As I worked towards my degree, I took a job 5 minutes from home at a dispensary, which started my journey in the cannabis retail world. 
 
 I’ve worked the sales floor, starting at front desk admin, to patient service representative, then finally as a dat analyst. I understand this space from multiple angles—and I’m passionate about combining that experience with machine learning and human-centered design.
 
-This app is part capstone, part case study, and part personal mission. 🎓💼
+This app is part capstone, part case study, and part personal mission. 
 
 Want to collaborate or give feedback?
 - [GitHub](https://github.com/KenValenzuela)
 - [LinkedIn](https://www.linkedin.com/in/ken-valenzuela)
 """)
+
+st.markdown("---")
+st.markdown(
+    "Built solo with patience, curiosity, and a lot of caffeine. [Support the project](https://coff.ee/kenvalenzuela) if you believe in what it’s trying to do. ☕",
+    unsafe_allow_html=True,
+)

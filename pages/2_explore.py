@@ -70,3 +70,8 @@ st.download_button(
     file_name="filtered_strains.csv",
     mime="text/csv"
 )
+st.markdown("---")
+st.markdown(
+    "Enjoying the strain deep dive? [Support the project](https://coff.ee/kenvalenzuela) and help me keep expanding the data. ☕",
+    unsafe_allow_html=True,
+)

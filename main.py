@@ -64,3 +64,12 @@ Use the sidebar to explore the app:
     if st.sidebar.button("🚪 Log Out"):
         st.session_state.clear()
         st.rerun()
+
+
+
+
+st.markdown("---")
+st.markdown(
+    "Made with focus, coffee, and curiosity — [buy me a coffee](https://coff.ee/kenvalenzuela) if you want to support this project ☕",
+    unsafe_allow_html=True,
+)

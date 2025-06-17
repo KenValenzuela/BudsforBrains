@@ -146,3 +146,10 @@ elif profile:
     st.json(profile)
 else:
     st.info("No profile yet. Fill out the survey to get started.")
+
+
+st.markdown("---")
+st.markdown(
+    "Thanks for sharing your preferences. Want to support this kind of personalized cannabis education? [Buy me a coffee](https://coff.ee/kenvalenzuela). ☕",
+    unsafe_allow_html=True,
+)

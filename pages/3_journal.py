@@ -99,3 +99,9 @@ if journal_entries:
     )
 else:
     st.info("No entries yet. Use the form above to log your first experience.")
+
+    st.markdown("---")
+    st.markdown(
+        "This journaling system was built to help people track what works for them. If it helped you, [buy me a coffee](https://coff.ee/kenvalenzuela). ☕",
+        unsafe_allow_html=True,
+    )
