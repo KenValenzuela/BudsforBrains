@@ -1,10 +1,10 @@
-# === pages/4_survey.py (Supabase-Integrated Survey) ===
+# === pages/4_survey.py (Supabase-Integrated & Stable Survey) ===
+
 import streamlit as st
 import os
 import numpy as np
 import pandas as pd
 import faiss
-import json
 from dotenv import load_dotenv
 from openai import OpenAI
 from supabase_profile_utils import fetch_or_create_user_profile, update_user_profile_supabase
@@ -50,47 +50,58 @@ if "user" not in st.session_state:
 
 user_email = st.session_state["user"].user.email
 profile = fetch_or_create_user_profile(user_email)
+if not profile:
+    st.error("❌ Could not load your profile.")
+    st.stop()
 
 # === Survey UI ===
 st.caption("Answer a few quick questions to help personalize your strain recommendations.")
 
 with st.form("budtender_survey"):
     desired_effects = st.multiselect("What effects are you hoping for?", [
-        "Relaxed", "Euphoric", "Focused", "Creative", "Uplifted", "Sleepy", "Energetic"])
+        "Relaxed", "Euphoric", "Focused", "Creative", "Uplifted", "Sleepy", "Energetic"
+    ], default=profile.get("desired_effects", []))
 
     avoid_effects = st.multiselect("Any effects you'd like to avoid?", [
-        "Anxiety", "Dry Mouth", "Couch-lock", "Paranoia", "Grogginess", "None"])
+        "Anxiety", "Dry Mouth", "Couch-lock", "Paranoia", "Grogginess", "None"
+    ], default=profile.get("avoid_effects", []))
 
-    preferred_aromas = st.multiselect(
-        "Preferred flavors or aromas?",
-        ["Fruity", "Earthy", "Citrus", "Sweet", "Herbal", "Spicy", "No Preference"],
-        default=[x for x in profile.get("preferred_aromas", []) if x in [
-            "Fruity", "Earthy", "Citrus", "Sweet", "Herbal", "Spicy", "No Preference"]]
-    )
+    preferred_aromas = st.multiselect("Preferred flavors or aromas?", [
+        "Fruity", "Earthy", "Citrus", "Sweet", "Herbal", "Spicy", "No Preference"
+    ], default=[x for x in profile.get("preferred_aromas", []) if x in [
+        "Fruity", "Earthy", "Citrus", "Sweet", "Herbal", "Spicy", "No Preference"]])
 
     usage_context = st.radio("What are you using it for?", [
-        "Sleep", "Socializing", "Focus/Work", "Creativity", "Chronic Pain", "Anxiety Relief", "General Enjoyment"])
+        "Sleep", "Socializing", "Focus/Work", "Creativity", "Chronic Pain", "Anxiety Relief", "General Enjoyment"
+    ], index=0)
 
     experience = st.radio("What's your cannabis experience level?", [
-        "Beginner", "Intermediate", "Experienced"])
+        "Beginner", "Intermediate", "Experienced"
+    ], index=0)
 
     time_of_day = st.selectbox("When do you usually consume?", [
-        "Morning", "Afternoon", "Evening", "Late Night"])
+        "Morning", "Afternoon", "Evening", "Late Night"
+    ], index=2)
 
     cannabinoid_pref = st.radio("Do you have a cannabinoid preference?", [
-        "High THC", "High CBD", "Balanced", "No Preference"])
+        "High THC", "High CBD", "Balanced", "No Preference"
+    ], index=0)
 
     medical_goals = st.multiselect("Are you trying to address any of the following?", [
-        "Stress", "Insomnia", "Chronic Pain", "Appetite Loss", "Migraines", "Muscle Spasms", "None"])
+        "Stress", "Insomnia", "Chronic Pain", "Appetite Loss", "Migraines", "Muscle Spasms", "None"
+    ], default=profile.get("medical_goals", []))
 
     custom_note = st.text_area("Anything else you'd like us to consider?",
-        placeholder="e.g. 'Prefer something calming but functional for work'")
+        placeholder="e.g. 'Prefer something calming but functional for work'",
+        value=profile.get("custom_notes", "")
+    )
 
     submitted = st.form_submit_button("Get My Recommendations")
 
+# === Save + Embed + Search ===
 if submitted:
     profile_text = (
-        f"I'm a {experience.lower()} user usually consuming in the {time_of_day.lower()}\n"
+        f"I'm a {experience.lower()} user usually consuming in the {time_of_day.lower()}.\n"
         f"Looking for effects like: {', '.join(desired_effects) or 'none specified'}.\n"
         f"Avoiding: {', '.join(avoid_effects) or 'nothing specific'}.\n"
         f"Preferred aromas/flavors: {', '.join(preferred_aromas) or 'no strong preference'}.\n"
@@ -112,7 +123,9 @@ if submitted:
         "medical_goals": medical_goals,
         "custom_notes": custom_note.strip()
     })
+
     update_user_profile_supabase(user_email, profile)
+    st.session_state["refresh_profile"] = True
 
     st.markdown("#### ✅ Profile Summary")
     st.code(profile_text)
@@ -146,7 +159,6 @@ elif profile:
     st.json(profile)
 else:
     st.info("No profile yet. Fill out the survey to get started.")
-
 
 st.markdown("---")
 st.markdown(
