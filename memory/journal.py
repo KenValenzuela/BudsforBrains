@@ -1,4 +1,4 @@
-# === memory/journal.py (Supabase Native Journal + Profile Sync) ===
+# === memory/journal.py (Final Fixed Supabase Sync Version) ===
 
 from datetime import datetime
 from utils.supabase_client import supabase
@@ -24,22 +24,27 @@ def log_entry(entry, email=DEFAULT_EMAIL):
         "user_id": user_id
     }).execute()
 
-    # Update user profile with strains and effects
+    # Pull existing profile
     profile = fetch_or_create_user_profile(email)
+
+    # === Update strain + effect history
     strain = entry.get("strain", "").strip()
-    if strain:
-        profile.setdefault("past_strains", [])
-        if strain not in profile["past_strains"]:
-            profile["past_strains"].append(strain)
+    profile.setdefault("past_strains", [])
+    if strain and strain not in profile["past_strains"]:
+        profile["past_strains"].append(strain)
 
     for effect in entry.get("effects_felt", []):
         profile.setdefault("logged_effects", [])
         if effect and effect not in profile["logged_effects"]:
             profile["logged_effects"].append(effect)
 
+    # === Force valid JSON types
+    profile["past_strains"] = list(set(profile.get("past_strains", [])))
+    profile["logged_effects"] = list(set(profile.get("logged_effects", [])))
+
     update_user_profile_supabase(email, profile)
 
-    # Signal refresh if running in Streamlit context
+    # Signal Streamlit to refresh profile if running interactively
     try:
         import streamlit as st
         st.session_state["refresh_profile"] = True
@@ -49,9 +54,12 @@ def log_entry(entry, email=DEFAULT_EMAIL):
 def get_reinforcement_boost(strain, profile):
     return float(profile.get("reinforcement", {}).get(strain, 0.0))
 
-def adjust_reinforcement_score(profile, strain, feedback):
+def adjust_reinforcement_score(profile, strain, feedback, email=DEFAULT_EMAIL):
     profile.setdefault("reinforcement", {})
     delta = 1.0 if feedback == "positive" else -1.0
     current = profile["reinforcement"].get(strain, 0.0)
     profile["reinforcement"][strain] = round(current + delta, 2)
-    update_user_profile_supabase(profile.get("email", DEFAULT_EMAIL), profile)
+
+    # Make sure reinforcement and other fields are saved properly
+    profile["reinforcement"] = dict(profile.get("reinforcement", {}))
+    update_user_profile_supabase(email, profile)
