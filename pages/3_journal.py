@@ -1,8 +1,8 @@
-# === pages/3_journal.py (Supabase + Auth) ===
+# === pages/3_journal.py (Supabase + Auth Integrated) ===
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from memory.user_profile import load_user_profile, update_user_profile
+from supabase_profile_utils import fetch_or_create_user_profile, update_user_profile_supabase
 from utils.supabase_client import supabase
 
 st.set_page_config("📓 Strain Journal", layout="wide")
@@ -15,6 +15,7 @@ if "user" not in st.session_state:
     st.stop()
 
 user_email = st.session_state["user"].user.email
+profile = fetch_or_create_user_profile(user_email)
 
 # === Get user ID safely ===
 def get_user_id(email):
@@ -43,7 +44,6 @@ def recompute_profile(entries):
     }
 
 journal_entries = load_journal(user_email)
-profile = load_user_profile(user_email)
 
 # === Manual Entry Form ===
 st.markdown("### ➕ Add New Experience")
@@ -79,7 +79,7 @@ with st.form("manual_entry_form"):
             journal_entries.insert(0, new_entry)
             updated_profile = recompute_profile(journal_entries)
             profile.update(updated_profile)
-            update_user_profile(profile, email=user_email)
+            update_user_profile_supabase(user_email, profile)
             st.success(f"✅ Entry added for **{strain}** on {new_entry['date']}")
         else:
             st.error("❌ Could not find a valid user ID. Please make sure the profile exists.")

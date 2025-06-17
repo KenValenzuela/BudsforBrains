@@ -1,4 +1,4 @@
-# === pages/4_survey.py (Simplified, No Inline Auth) ===
+# === pages/4_survey.py (Supabase-Integrated Survey) ===
 import streamlit as st
 import os
 import numpy as np
@@ -7,8 +7,7 @@ import faiss
 import json
 from dotenv import load_dotenv
 from openai import OpenAI
-from memory.user_profile import load_user_profile, update_user_profile
-from utils.supabase_client import supabase
+from supabase_profile_utils import fetch_or_create_user_profile, update_user_profile_supabase
 
 # === Path Setup ===
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -50,7 +49,7 @@ if "user" not in st.session_state:
     st.stop()
 
 user_email = st.session_state["user"].user.email
-profile = load_user_profile(user_email)
+profile = fetch_or_create_user_profile(user_email)
 
 # === Survey UI ===
 st.caption("Answer a few quick questions to help personalize your strain recommendations.")
@@ -63,10 +62,11 @@ with st.form("budtender_survey"):
         "Anxiety", "Dry Mouth", "Couch-lock", "Paranoia", "Grogginess", "None"])
 
     preferred_aromas = st.multiselect(
-    "Preferred flavors or aromas?",
-    ["Fruity", "Earthy", "Citrus", "Sweet", "Herbal", "Spicy", "No Preference"],
-    default=[x for x in profile.get("preferred_aromas", []) if x in ["Fruity", "Earthy", "Citrus", "Sweet", "Herbal", "Spicy", "No Preference"]]
-)
+        "Preferred flavors or aromas?",
+        ["Fruity", "Earthy", "Citrus", "Sweet", "Herbal", "Spicy", "No Preference"],
+        default=[x for x in profile.get("preferred_aromas", []) if x in [
+            "Fruity", "Earthy", "Citrus", "Sweet", "Herbal", "Spicy", "No Preference"]]
+    )
 
     usage_context = st.radio("What are you using it for?", [
         "Sleep", "Socializing", "Focus/Work", "Creativity", "Chronic Pain", "Anxiety Relief", "General Enjoyment"])
@@ -112,7 +112,7 @@ if submitted:
         "medical_goals": medical_goals,
         "custom_notes": custom_note.strip()
     })
-    update_user_profile(profile, email=user_email)
+    update_user_profile_supabase(user_email, profile)
 
     st.markdown("#### ✅ Profile Summary")
     st.code(profile_text)

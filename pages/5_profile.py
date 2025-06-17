@@ -1,7 +1,7 @@
-# === pages/5_profile.py (Supabase Auth + Profile Dashboard) ===
+# === pages/5_profile.py (Supabase Integrated Profile Dashboard) ===
 import streamlit as st
 import pandas as pd
-from memory.user_profile import load_user_profile, update_user_profile
+from supabase_profile_utils import fetch_or_create_user_profile, update_user_profile_supabase
 
 st.set_page_config(page_title="🧬 Profile Dashboard", layout="wide")
 st.title("🧬 Your Personal Cannabis Profile")
@@ -12,7 +12,7 @@ if "user" not in st.session_state:
     st.stop()
 
 user_email = st.session_state["user"].user.email
-profile = load_user_profile(user_email)
+profile = fetch_or_create_user_profile(user_email)
 
 # === Profile Form ===
 st.markdown("## 🎯 Personal Preferences")
@@ -45,7 +45,7 @@ with st.form("update_profile"):
         profile["desired_effects"] = desired_effects
         profile["preferred_aromas"] = preferred_aromas
         profile["notes"] = notes
-        update_user_profile(profile, email=user_email)
+        update_user_profile_supabase(user_email, profile)
         st.success("✅ Profile saved.")
 
 # === Profile Dashboard ===

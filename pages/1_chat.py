@@ -1,4 +1,4 @@
-# === pages/1_chat.py (Supabase + Auth Integrated) ===
+# === pages/1_chat.py (Supabase + Auth Integrated, Fixed) ===
 import os, sys, json
 import streamlit as st
 import faiss
@@ -10,9 +10,9 @@ from datetime import datetime
 
 # === Local Imports ===
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from memory.user_profile import load_user_profile, update_user_profile
 from memory.journal import log_entry, get_reinforcement_boost, adjust_reinforcement_score
 from scripts.strain_scraper import scrape_all_sources
+from supabase_profile_utils import fetch_or_create_user_profile, update_user_profile_supabase
 
 try:
     from chat_guard import should_answer, explain_restriction
@@ -49,6 +49,9 @@ with open(os.path.join(ROOT, "data/terpene_info.json"), encoding="utf-8") as f:
 with open(os.path.join(ROOT, "data/cannabinoid_info.json"), encoding="utf-8") as f:
     cannabinoid_info = json.load(f)
 
+# === Load user profile ===
+profile = fetch_or_create_user_profile(user_email)
+
 # === Utility ===
 def build_fallback_urls(name):
     slug = name.lower().replace(" ", "-")
@@ -61,9 +64,6 @@ def build_fallback_urls(name):
 # === Page Setup ===
 st.set_page_config("Cannabis Assistant", layout="wide")
 st.title("🌿 Cannabis Chat Assistant")
-
-# === Load user profile ===
-profile = load_user_profile(user_email)
 
 # === Session State ===
 session_name = st.sidebar.text_input("Session Name", value=st.session_state.get("current_session", "default"))
@@ -192,18 +192,18 @@ if st.session_state["last_question"] and st.session_state["last_answer"]:
         top_terps = scraped.get("terpenes", []) or [row.get("dominant_terpene", "Unknown")]
 
         urls = {
-    "leafly_url": row.get("leafly_url"),
-    "allbud_url": row.get("allbud_url"),
-    "weedmaps_url": row.get("weedmaps_url")
-}
-        if not any(urls):
+            "leafly_url": row.get("leafly_url"),
+            "allbud_url": row.get("allbud_url"),
+            "weedmaps_url": row.get("weedmaps_url")
+        }
+        if not any(urls.values()):
             urls = build_fallback_urls(name)
 
         source_links = " | ".join(filter(None, [
-    f"[Leafly]({urls['leafly_url']})" if urls.get("leafly_url") else "",
-    f"[AllBud]({urls['allbud_url']})" if urls.get("allbud_url") else "",
-    f"[Weedmaps]({urls['weedmaps_url']})" if urls.get("weedmaps_url") else ""
-]))
+            f"[Leafly]({urls['leafly_url']})" if urls.get("leafly_url") else "",
+            f"[AllBud]({urls['allbud_url']})" if urls.get("allbud_url") else "",
+            f"[Weedmaps]({urls['weedmaps_url']})" if urls.get("weedmaps_url") else ""
+        ]))
 
         with st.container():
             st.markdown(f"**{name}** — Dominant Terpene: {top_terps[0]}")
@@ -239,6 +239,9 @@ if st.session_state["last_question"] and st.session_state["last_answer"]:
 
     if (st.session_state["last_question"], st.session_state["last_answer"]) not in memory["history"]:
         memory["history"].append((st.session_state["last_question"], st.session_state["last_answer"]))
+
+# === Update Profile in Supabase ===
+update_user_profile_supabase(user_email, memory["user_profile"])
 
 # === Sidebar ===
 st.sidebar.title("📂 Session Overview")
