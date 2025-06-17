@@ -1,33 +1,38 @@
-# .gitignore
-
-# Byte-compiled / cache files
+# === Python cache files ===
 __pycache__/
 *.py[cod]
 *.so
 *.pyd
 *.pyo
 
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints
-
-# Environment files
-.env
-*.env
-.venv/
-venv/
-
-# IDE / Editor configs
+# === Jupyter & editor artifacts ===
+.ipynb_checkpoints/
+.DS_Store
 .idea/
 .vscode/
 
-# Data and models (can be too large or sensitive)
-data/*.parquet
+# === Virtual environments & secrets ===
+.venv/
+venv/
+.env
+*.env
+
+# === Logs ===
+*.log
+
+# === Raw and experimental data (ignore) ===
 data/*.csv
-data/*.json
-vector_store/*
+data/*.parquet
+data/raw_*.json
+data/scraped_*.json
 scripts/models/*.pkl
 *.npy
 
-# Logs and misc
-*.log
-.DS_Store
+# === KEEP the required runtime data for the app to function ===
+!data/terpene_info.json
+!vector_store/index.faiss
+!vector_store/docs_metadata.pkl
+
+# === If needed: allow seed user profile and journal for demo purposes ===
+!memory/user_profile.json
+!memory/journal.json
