@@ -29,7 +29,7 @@ scripts/models/*.pkl
 
 # === Allow critical runtime files ===
 !data/terpene_info.json
-!/data/cleaned_strains.parquet
+!data/cleaned_strains.parquet
 !data/docs_df_with_embeddings.parquet
 !vector_store/index.faiss
 !vector_store/docs_metadata.pkl
