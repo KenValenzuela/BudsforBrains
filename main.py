@@ -1,4 +1,4 @@
-# === main.py (Improved Login + Sidebar Navigation) ===
+# === main.py (Improved with Confirmation Guidance) ===
 import streamlit as st
 from utils.supabase_client import supabase
 
@@ -9,11 +9,13 @@ st.title("🌿 Buds for Brains")
 if "user" not in st.session_state:
     st.subheader("🔐 Log In or Create an Account")
 
-    st.markdown(
-        "Enter **any valid email and a password you choose**. This is separate from your personal email provider.\n\n"
-        "- If this is your **first time**, clicking **Sign Up** will create your account.\n"
-        "- On future visits, just **Log In** with the same email/password."
-    )
+    st.markdown("""
+Enter a valid email and create a password to get started.
+
+- If this is your **first time**, click **Sign Up** to create an account.
+- You'll get a **confirmation email** — check your inbox and click the link.
+- On future visits, just **Log In** with the same credentials.
+    """)
 
     email = st.text_input("📧 Email", placeholder="you@example.com")
     password = st.text_input("🔑 Password", type="password", placeholder="Create a password")
@@ -23,20 +25,24 @@ if "user" not in st.session_state:
     if col1.button("🔐 Log In"):
         try:
             user = supabase.auth.sign_in_with_password({"email": email, "password": password})
-            st.session_state["user"] = user
-            st.success(f"✅ Logged in as {user.user.email}")
-            st.rerun()
+            if not user.user.email_confirmed_at:
+                st.warning("📧 Your email is not confirmed. Please check your inbox and click the confirmation link.")
+            else:
+                st.session_state["user"] = user
+                st.success(f"✅ Logged in as {user.user.email}")
+                st.rerun()
         except Exception as e:
-            st.error("❌ Login failed. Make sure your credentials are correct.")
+            st.error(f"❌ Login failed: {str(e)}")
 
     if col2.button("🆕 Sign Up"):
         try:
             user = supabase.auth.sign_up({"email": email, "password": password})
-            st.session_state["user"] = user
-            st.success("✅ Account created successfully. You're now logged in.")
-            st.rerun()
+            st.info("📧 Account created. Check your email and click the confirmation link to activate your account.")
         except Exception as e:
-            st.error("❌ Signup failed. That email might already be in use.")
+            if "User already registered" in str(e):
+                st.warning("⚠️ This email is already registered. Try logging in instead.")
+            else:
+                st.error(f"❌ Signup failed: {str(e)}")
 
 else:
     # === Authenticated View ===
