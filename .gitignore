@@ -1,11 +1,11 @@
-# === Python cache files ===
+# === Python cache ===
 __pycache__/
 *.py[cod]
 *.so
 *.pyd
 *.pyo
 
-# === Jupyter & editor artifacts ===
+# === Notebook & editor artifacts ===
 .ipynb_checkpoints/
 .DS_Store
 .idea/
@@ -20,19 +20,17 @@ venv/
 # === Logs ===
 *.log
 
-# === Raw and experimental data (ignore) ===
+# === Raw & intermediate data (ignore) ===
 data/*.csv
-data/*.parquet
-data/raw_*.json
 data/scraped_*.json
+data/raw_*.json
 scripts/models/*.pkl
 *.npy
 
-# === KEEP the required runtime data for the app to function ===
+# === Allow critical runtime files ===
 !data/terpene_info.json
+!data/docs_df_with_embeddings.parquet
 !vector_store/index.faiss
 !vector_store/docs_metadata.pkl
-
-# === If needed: allow seed user profile and journal for demo purposes ===
 !memory/user_profile.json
 !memory/journal.json
