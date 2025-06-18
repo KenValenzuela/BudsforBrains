@@ -7,6 +7,8 @@ import pandas as pd
 from dotenv import load_dotenv
 from openai import OpenAI
 from datetime import datetime
+from utils.faiss_utils import load_faiss_index_safe
+index = load_faiss_index_safe()
 
 # === Local Imports ===
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
